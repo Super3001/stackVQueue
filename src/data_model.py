@@ -9,6 +9,7 @@ import os
 class DataItem:
     text: str
     push_time: str
+    modify_time: str
     pop_time: Optional[str] = None
 
     def to_dict(self):
@@ -19,6 +20,7 @@ class DataItem:
         return cls(
             text=data.get('text', ''),
             push_time=data.get('push_time', ''),
+            modify_time=data.get('modify_time', data.get('push_time', '')),
             pop_time=data.get('pop_time')
         )
 
@@ -59,7 +61,8 @@ class DataManager:
             f.write(json5.dumps(record, ensure_ascii=False) + '\n')
 
     def push_stack(self, text: str):
-        item = DataItem(text=text, push_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        item = DataItem(text=text, push_time=now, modify_time=now)
         self.stack_items.insert(0, item)
         self._save_current_state()
         return item
@@ -74,7 +77,8 @@ class DataManager:
         return None
 
     def enqueue(self, text: str):
-        item = DataItem(text=text, push_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        item = DataItem(text=text, push_time=now, modify_time=now)
         self.queue_items.append(item)
         self._save_current_state()
         return item
@@ -90,7 +94,22 @@ class DataManager:
 
     def update_item_text(self, item: DataItem, new_text: str):
         item.text = new_text
+        item.modify_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self._save_current_state()
+
+    def move_stack_item(self, index: int, direction: int):
+        if 0 <= index < len(self.stack_items):
+            new_index = index + direction
+            if 0 <= new_index < len(self.stack_items):
+                self.stack_items[index], self.stack_items[new_index] = self.stack_items[new_index], self.stack_items[index]
+                self._save_current_state()
+
+    def move_queue_item(self, index: int, direction: int):
+        if 0 <= index < len(self.queue_items):
+            new_index = index + direction
+            if 0 <= new_index < len(self.queue_items):
+                self.queue_items[index], self.queue_items[new_index] = self.queue_items[new_index], self.queue_items[index]
+                self._save_current_state()
 
     def save(self):
         self._save_current_state()

@@ -1,14 +1,16 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QTextEdit, QScrollArea, QFrame, QMessageBox
+    QTextEdit, QScrollArea, QFrame, QMessageBox, QPushButton
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QCursor
+from PyQt6.QtGui import QFont
 from src.data_model import DataItem
 
 
 class ItemWidget(QFrame):
     text_changed = pyqtSignal(object, str)
+    move_up = pyqtSignal(object)
+    move_down = pyqtSignal(object)
 
     def __init__(self, item: DataItem, parent=None):
         super().__init__(parent)
@@ -37,8 +39,50 @@ class ItemWidget(QFrame):
         self.setMouseTracking(True)
 
     def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        self.up_btn = QPushButton("↑")
+        self.up_btn.setFont(QFont('Microsoft YaHei', 8))
+        self.up_btn.setFixedSize(20, 20)
+        self.up_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4682b4;
+                color: white;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1e90ff;
+            }
+        """)
+        self.up_btn.clicked.connect(lambda: self.move_up.emit(self.item))
+        self.up_btn.hide()
+        button_layout.addWidget(self.up_btn)
+        
+        self.down_btn = QPushButton("↓")
+        self.down_btn.setFont(QFont('Microsoft YaHei', 8))
+        self.down_btn.setFixedSize(20, 20)
+        self.down_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4682b4;
+                color: white;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #1e90ff;
+            }
+        """)
+        self.down_btn.clicked.connect(lambda: self.move_down.emit(self.item))
+        self.down_btn.hide()
+        button_layout.addWidget(self.down_btn)
+        
+        main_layout.addLayout(button_layout)
         
         self.text_edit = QTextEdit()
         self.text_edit.setPlainText(self.item.text)
@@ -47,8 +91,8 @@ class ItemWidget(QFrame):
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.text_edit.textChanged.connect(self.on_text_changed)
-        self.text_edit.setMaximumHeight(100)
-        layout.addWidget(self.text_edit)
+        self.text_edit.setMaximumHeight(80)
+        main_layout.addWidget(self.text_edit)
 
     def on_text_changed(self):
         new_text = self.text_edit.toPlainText()
@@ -62,11 +106,18 @@ class ItemWidget(QFrame):
             self._pending_text = None
 
     def enterEvent(self, event):
-        tooltip = f"入栈/入队时间: {self.item.push_time}"
+        tooltip = f"入栈/入队时间: {self.item.push_time}\n修改时间: {self.item.modify_time}"
         if self.item.pop_time:
             tooltip += f"\n出栈/出队时间: {self.item.pop_time}"
         self.setToolTip(tooltip)
+        self.up_btn.show()
+        self.down_btn.show()
         super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.up_btn.hide()
+        self.down_btn.hide()
+        super().leaveEvent(event)
 
 
 class StackWidget(QWidget):
@@ -141,6 +192,8 @@ class StackWidget(QWidget):
     def add_item_widget(self, item: DataItem, from_load=False):
         widget = ItemWidget(item)
         widget.text_changed.connect(self.on_item_text_changed)
+        widget.move_up.connect(self.on_move_up)
+        widget.move_down.connect(self.on_move_down)
         if from_load:
             self.scroll_layout.addWidget(widget)
             self.item_widgets.append(widget)
@@ -165,6 +218,20 @@ class StackWidget(QWidget):
 
     def on_item_text_changed(self, item: DataItem, new_text: str):
         self.data_manager.update_item_text(item, new_text)
+
+    def on_move_up(self, item: DataItem):
+        if item in self.data_manager.stack_items:
+            index = self.data_manager.stack_items.index(item)
+            if index > 0:
+                self.data_manager.move_stack_item(index, -1)
+                self.load_items()
+
+    def on_move_down(self, item: DataItem):
+        if item in self.data_manager.stack_items:
+            index = self.data_manager.stack_items.index(item)
+            if index < len(self.data_manager.stack_items) - 1:
+                self.data_manager.move_stack_item(index, 1)
+                self.load_items()
 
 
 class QueueWidget(QWidget):
@@ -239,6 +306,8 @@ class QueueWidget(QWidget):
     def add_item_widget(self, item: DataItem):
         widget = ItemWidget(item)
         widget.text_changed.connect(self.on_item_text_changed)
+        widget.move_up.connect(self.on_move_left)
+        widget.move_down.connect(self.on_move_right)
         self.scroll_layout.addWidget(widget)
         self.item_widgets.append(widget)
 
@@ -259,3 +328,17 @@ class QueueWidget(QWidget):
 
     def on_item_text_changed(self, item: DataItem, new_text: str):
         self.data_manager.update_item_text(item, new_text)
+
+    def on_move_left(self, item: DataItem):
+        if item in self.data_manager.queue_items:
+            index = self.data_manager.queue_items.index(item)
+            if index > 0:
+                self.data_manager.move_queue_item(index, -1)
+                self.load_items()
+
+    def on_move_right(self, item: DataItem):
+        if item in self.data_manager.queue_items:
+            index = self.data_manager.queue_items.index(item)
+            if index < len(self.data_manager.queue_items) - 1:
+                self.data_manager.move_queue_item(index, 1)
+                self.load_items()
