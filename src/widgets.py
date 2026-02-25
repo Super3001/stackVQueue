@@ -13,6 +13,10 @@ class ItemWidget(QFrame):
     def __init__(self, item: DataItem, parent=None):
         super().__init__(parent)
         self.item = item
+        self._save_timer = QTimer()
+        self._save_timer.setSingleShot(True)
+        self._save_timer.timeout.connect(self._emit_text_changed)
+        self._pending_text = None
         self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
         self.setLineWidth(2)
         self.setStyleSheet("""
@@ -49,7 +53,13 @@ class ItemWidget(QFrame):
     def on_text_changed(self):
         new_text = self.text_edit.toPlainText()
         if new_text != self.item.text:
-            self.text_changed.emit(self.item, new_text)
+            self._pending_text = new_text
+            self._save_timer.start(500)
+
+    def _emit_text_changed(self):
+        if self._pending_text is not None and self._pending_text != self.item.text:
+            self.text_changed.emit(self.item, self._pending_text)
+            self._pending_text = None
 
     def enterEvent(self, event):
         tooltip = f"入栈/入队时间: {self.item.push_time}"
@@ -96,7 +106,6 @@ class StackWidget(QWidget):
             }
             QLabel:hover {
                 background-color: #45a049;
-                cursor: pointer;
             }
         """)
         self.push_btn.mousePressEvent = self.on_push
@@ -113,7 +122,6 @@ class StackWidget(QWidget):
             }
             QLabel:hover {
                 background-color: #da190b;
-                cursor: pointer;
             }
         """)
         self.pop_btn.mousePressEvent = self.on_pop
@@ -128,13 +136,17 @@ class StackWidget(QWidget):
         self.item_widgets.clear()
         
         for item in self.data_manager.stack_items:
-            self.add_item_widget(item)
+            self.add_item_widget(item, from_load=True)
 
-    def add_item_widget(self, item: DataItem):
+    def add_item_widget(self, item: DataItem, from_load=False):
         widget = ItemWidget(item)
         widget.text_changed.connect(self.on_item_text_changed)
-        self.scroll_layout.insertWidget(0, widget)
-        self.item_widgets.insert(0, widget)
+        if from_load:
+            self.scroll_layout.addWidget(widget)
+            self.item_widgets.append(widget)
+        else:
+            self.scroll_layout.insertWidget(0, widget)
+            self.item_widgets.insert(0, widget)
 
     def on_push(self, event):
         from PyQt6.QtWidgets import QInputDialog
@@ -192,7 +204,6 @@ class QueueWidget(QWidget):
             }
             QLabel:hover {
                 background-color: #45a049;
-                cursor: pointer;
             }
         """)
         self.enqueue_btn.mousePressEvent = self.on_enqueue
@@ -209,7 +220,6 @@ class QueueWidget(QWidget):
             }
             QLabel:hover {
                 background-color: #da190b;
-                cursor: pointer;
             }
         """)
         self.dequeue_btn.mousePressEvent = self.on_dequeue
