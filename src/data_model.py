@@ -97,19 +97,21 @@ class DataManager:
         item.modify_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self._save_current_state()
 
-    def move_stack_item(self, index: int, direction: int):
-        if 0 <= index < len(self.stack_items):
+    def _move_item(self, items: list[DataItem], index: int, direction: int):
+        """通用移动方法：在指定列表中交换相邻元素的位置"""
+        if 0 <= index < len(items):
             new_index = index + direction
-            if 0 <= new_index < len(self.stack_items):
-                self.stack_items[index], self.stack_items[new_index] = self.stack_items[new_index], self.stack_items[index]
+            if 0 <= new_index < len(items):
+                items[index], items[new_index] = items[new_index], items[index]
                 self._save_current_state()
 
+    def move_stack_item(self, index: int, direction: int):
+        """移动栈中指定位置的元素"""
+        self._move_item(self.stack_items, index, direction)
+
     def move_queue_item(self, index: int, direction: int):
-        if 0 <= index < len(self.queue_items):
-            new_index = index + direction
-            if 0 <= new_index < len(self.queue_items):
-                self.queue_items[index], self.queue_items[new_index] = self.queue_items[new_index], self.queue_items[index]
-                self._save_current_state()
+        """移动队列中指定位置的元素"""
+        self._move_item(self.queue_items, index, direction)
 
     def save(self):
         self._save_current_state()
