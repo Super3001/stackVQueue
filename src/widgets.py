@@ -11,6 +11,7 @@ class ItemWidget(QFrame):
     text_changed = pyqtSignal(object, str)
     move_up = pyqtSignal(object)
     move_down = pyqtSignal(object)
+    delete_item = pyqtSignal(object)
 
     def __init__(self, item: DataItem, parent=None):
         super().__init__(parent)
@@ -82,6 +83,24 @@ class ItemWidget(QFrame):
         self.down_btn.hide()
         button_layout.addWidget(self.down_btn)
         
+        self.delete_btn = QPushButton("×")
+        self.delete_btn.setFont(QFont('Microsoft YaHei', 10, QFont.Weight.Bold))
+        self.delete_btn.setFixedSize(20, 20)
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #ee5a52;
+            }
+        """)
+        self.delete_btn.clicked.connect(lambda: self.delete_item.emit(self.item))
+        self.delete_btn.hide()
+        button_layout.addWidget(self.delete_btn)
+        
         main_layout.addLayout(button_layout)
         
         self.text_edit = QTextEdit()
@@ -112,11 +131,13 @@ class ItemWidget(QFrame):
         self.setToolTip(tooltip)
         self.up_btn.show()
         self.down_btn.show()
+        self.delete_btn.show()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self.up_btn.hide()
         self.down_btn.hide()
+        self.delete_btn.hide()
         super().leaveEvent(event)
 
 
@@ -194,6 +215,7 @@ class StackWidget(QWidget):
         widget.text_changed.connect(self.on_item_text_changed)
         widget.move_up.connect(self.on_move_up)
         widget.move_down.connect(self.on_move_down)
+        widget.delete_item.connect(self.on_delete)
         if from_load:
             self.scroll_layout.addWidget(widget)
             self.item_widgets.append(widget)
@@ -232,6 +254,12 @@ class StackWidget(QWidget):
             if index < len(self.data_manager.stack_items) - 1:
                 self.data_manager.move_stack_item(index, 1)
                 self.load_items()
+
+    def on_delete(self, item: DataItem):
+        if item in self.data_manager.stack_items:
+            index = self.data_manager.stack_items.index(item)
+            self.data_manager.delete_stack_item(index)
+            self.load_items()
 
 
 class QueueWidget(QWidget):
@@ -308,6 +336,7 @@ class QueueWidget(QWidget):
         widget.text_changed.connect(self.on_item_text_changed)
         widget.move_up.connect(self.on_move_left)
         widget.move_down.connect(self.on_move_right)
+        widget.delete_item.connect(self.on_delete)
         self.scroll_layout.addWidget(widget)
         self.item_widgets.append(widget)
 
@@ -342,3 +371,9 @@ class QueueWidget(QWidget):
             if index < len(self.data_manager.queue_items) - 1:
                 self.data_manager.move_queue_item(index, 1)
                 self.load_items()
+
+    def on_delete(self, item: DataItem):
+        if item in self.data_manager.queue_items:
+            index = self.data_manager.queue_items.index(item)
+            self.data_manager.delete_queue_item(index)
+            self.load_items()

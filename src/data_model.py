@@ -113,5 +113,25 @@ class DataManager:
         """移动队列中指定位置的元素"""
         self._move_item(self.queue_items, index, direction)
 
+    def delete_stack_item(self, index: int) -> Optional[DataItem]:
+        """删除栈中指定位置的元素"""
+        if 0 <= index < len(self.stack_items):
+            item = self.stack_items.pop(index)
+            item.pop_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._append_history(item, 'stack_delete')
+            self._save_current_state()
+            return item
+        return None
+
+    def delete_queue_item(self, index: int) -> Optional[DataItem]:
+        """删除队列中指定位置的元素"""
+        if 0 <= index < len(self.queue_items):
+            item = self.queue_items.pop(index)
+            item.pop_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._append_history(item, 'queue_delete')
+            self._save_current_state()
+            return item
+        return None
+
     def save(self):
         self._save_current_state()
